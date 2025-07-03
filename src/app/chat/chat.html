@@ -1,0 +1,53 @@
+<div class="flex flex-col h-dvh bg-gradient-to-br from-slate-50 to-slate-200 dark:from-slate-900 dark:to-slate-800">
+  <!-- header omitted for brevity -->
+
+  <!-- Tiny header ------------------------------------------------------- -->
+  <header class="py-3 px-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md
+    shadow flex items-center gap-2">
+    <span class="text-sky-400 font-semibold text-sky-600 dark:text-sky-400">🧠 Chatte - First Brew (v0.1)</span>
+  </header>
+
+  <!-- message pane -->
+  <main  class="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+    <ng-container *ngFor="let m of messages">
+      <div class="flex" [ngClass]="m.from === 'user' ? 'justify-end' : 'justify-start'">
+        <div class="max-w-[75%] rounded-2xl px-4 py-2 text-sm md:text-base break-words" [ngClass]="m.from === 'user'
+            ? 'bg-sky-600 text-white rounded-br-none'
+            : 'bg-white dark:bg-slate-700 dark:text-slate-100 rounded-bl-none shadow'">
+
+          <!-- normal text -->
+          <ng-container *ngIf="!m.loading; else typingTpl">
+            {{ m.text }}
+          </ng-container>
+
+          <!-- loader bubble -->
+          <ng-template #typingTpl>
+            <div class="flex items-center gap-2">
+              <!-- spinner -->
+              <svg class="animate-spin h-4 w-4 text-sky-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span class="text-slate-400">Typing…</span>
+            </div>
+          </ng-template>
+
+        </div>
+      </div>
+    </ng-container>
+  </main>
+
+  <!-- bottom input bar (unchanged) -->
+  <form class="shrink-0 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-md
+               border-t border-slate-200 dark:border-slate-700 px-4 py-3"
+    (submit)="sendMessage(msg.value); msg.value = ''">
+    <div class="flex items-center gap-3">
+      <input #msg type="text" placeholder="Type a message…" required autocomplete="off" class="flex-1 border border-slate-300 dark:border-slate-600
+                    rounded-full px-4 py-2 focus:outline-none focus:ring-2
+                    focus:ring-sky-500 dark:bg-slate-800 dark:text-slate-100" />
+      <button type="submit" class="rounded-full bg-sky-600 hover:bg-sky-700 active:bg-sky-800
+                     text-white px-4 py-2 transition">Send</button>
+    </div>
+  </form>
+</div>
