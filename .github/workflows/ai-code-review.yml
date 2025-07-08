@@ -19,7 +19,6 @@ jobs:
     # 2️⃣ Generate the PR diff -----------------------------------------------
     - name: Produce diff
       id: diff
-      shell: bash  
       run: |
         # Base branch ref (e.g. 'main' or 'master')
         BASE_REF=${{ github.base_ref }}
@@ -34,9 +33,11 @@ jobs:
     # 3️⃣ Ask Ollama for a code review ---------------------------------------
     - name: Query local LLM via Ollama
       id: review
-      shell: bash  
       run: |
-        prompt=$(cat <<'PROMPT' You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub‑flavored Markdown bullets. PROMPT)
+        prompt=$(cat <<'PROMPT' 
+        You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub‑flavored Markdown bullets. 
+        PROMPT
+        )
         # Combine system prompt + diff
         payload=$(jq -n --arg m "codellama:7b" \
                          --arg p "$prompt\n\n----- DIFF START -----\n${{ steps.diff.outputs.DIFF }}\n----- DIFF END -----" \
@@ -56,7 +57,6 @@ jobs:
     - name: Post review comment
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # built‑in token is fine
-        shell: bash  
       run: |
         # Encode the review for JSON
         body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
