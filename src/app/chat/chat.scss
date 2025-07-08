@@ -26,4 +26,16 @@
     display: flex;
     gap: 1rem;
   }
+
+
+ol {
+  list-style: disc !important;
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.li {
+  margin: 0.25rem 0;  /* vertical spacing */
+}
+
   

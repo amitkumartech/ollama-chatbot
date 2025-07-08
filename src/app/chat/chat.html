@@ -17,7 +17,7 @@
 
           <!-- normal text -->
           <ng-container *ngIf="!m.loading; else typingTpl">
-            {{ m.text }}
+            <div [innerHTML]="getItFormatted(m.text)"></div>
           </ng-container>
 
           <!-- loader bubble -->
