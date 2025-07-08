@@ -115,11 +115,21 @@ export class ChatComponent {
         },
       });
   }
+
   getItFormatted(llmResponse: any) {
     const html = marked(llmResponse);
     return html;
 
   }
+
+  getItFormattedCheck(llmResponse: any) {
+    const html = marked(llmResponse);
+    console.log("temp log added");
+
+    return html.toString();
+
+  }
+
 
 
 
