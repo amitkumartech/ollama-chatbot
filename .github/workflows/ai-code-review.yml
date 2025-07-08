@@ -8,7 +8,9 @@ jobs:
   review:
     # Runner must have Ollama + jq installed and be labelled "self-hosted"
     runs-on: self-hosted
-
+    defaults:
+      run:
+        shell: bash   # applies to every run: in this job
     steps:
     # 1️⃣ Checkout code -------------------------------------------------------
     - name: Checkout
@@ -51,7 +53,7 @@ jobs:
     # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
     - name: Post review comment
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # built‑in token is fine
+        GH_TOKEN: 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  # built‑in token is fine
       run: |
         # Encode the review for JSON
         body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
