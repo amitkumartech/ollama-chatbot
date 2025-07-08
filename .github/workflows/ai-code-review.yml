@@ -8,9 +8,7 @@ jobs:
   review:
     # Runner must have Ollama + jq installed and be labelled "self-hosted"
     runs-on: self-hosted
-    defaults:
-      run:
-        shell: bash   # applies to every run: in this job
+    
     steps:
     # 1️⃣ Checkout code -------------------------------------------------------
     - name: Checkout
