@@ -71,26 +71,27 @@ jobs:
           performance issues, and accessibility concerns. Respond in GitHub-flavored
           Markdown bullets.
           '@
-
+          Write-Host "✅ query prepared"
           $diffText = @"
           ${{ steps.diff.outputs.DIFF }}
           "@
 
           $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
-
+          Write-Host "✅ full prompt prepared"
           # ----- create JSON payload with jq --------------------------------------
           $payload = & jq -n --arg m "gemma:2b" --arg p $fullPrompt `
             '{model:$m, prompt:$p}'
-
+          Write-Host "✅ payload prepared ($payload)"
           # ----- call Ollama locally ---------------------------------------------
+
           $response = & curl -s http://localhost:11434/api/generate `
             -H "Content-Type: application/json" `
             -d $payload
-
+          Write-Host "✅ response prepared  ($response)"
           $reviewText = $response | ForEach-Object {
             try { ( $_ | ConvertFrom-Json ).response } catch { "" }
           } | Where-Object { $_ } | Out-String
-
+          Write-Host "✅ reviewText prepared ($reviewText)"
           $reviewText = $reviewText -replace "`r", ""
 
           # ----- expose for next step --------------------------------------------
