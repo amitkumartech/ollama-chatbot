@@ -24,20 +24,16 @@ jobs:
       # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
-        shell: C:\Progra~1\Git\bin\bash.exe --noprofile --norc -eo pipefail -c "{0}"
+        shell: bash
         run: |
-          # Base branch ref (e.g. 'main' or 'master')
           BASE_REF=${{ github.base_ref }}
           git fetch origin "$BASE_REF"
-          # We only diff .ts/.html/.scss for brevity; adjust as needed
           git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
-          # Save diff to output for later steps
-
           {
-          echo "DIFF<<EOF"
-          cat pr.diff
-          echo "EOF"
-           } >> $GITHUB_OUTPUT
+            echo "DIFF<<EOF"
+            cat pr.diff
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # 3️⃣ Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
