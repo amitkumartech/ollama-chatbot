@@ -54,6 +54,15 @@ jobs:
         id: review
         shell: pwsh
         run: |
+          Write-Host "Checking jq version..."
+          try {
+            $jqVersion = jq --version
+            Write-Host "✅ jq found: $jqVersion"
+          } catch {
+            Write-Host "❌ jq not found or not in PATH"
+            exit 1
+          }
+
           $ErrorActionPreference = "Stop"
 
           # ----- build the prompt -------------------------------------------------
@@ -99,14 +108,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built-in token is fine
         run: |
-          Write-Host "Checking jq version..."
-          try {
-            $jqVersion = jq --version
-            Write-Host "✅ jq found: $jqVersion"
-          } catch {
-            Write-Host "❌ jq not found or not in PATH"
-            exit 1
-          }
+
           # Encode the review for JSON
           body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
           curl -s -X POST \
