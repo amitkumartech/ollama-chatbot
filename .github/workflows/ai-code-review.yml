@@ -16,7 +16,7 @@ jobs:
 
       # Quick probe – show which program GitHub is executing
       - name: Probe current shell
-        shell: pwsh
+        shell: bash
         run: |
           Write-Host "GitHub picked: $($PSVersionTable.PSEdition)  (if this prints Core or Desktop, you are in PowerShell)"
           Write-Host "Bash in PATH? $(where.exe bash 2>$null)"
