@@ -14,10 +14,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔍 Quick debug – which shell is GitHub about to use?
-      - name: Show active shell
-        shell: pwsh # keep this one in PowerShell
-        run: echo "Shell chosen by runner = $SHELL"
+      # Quick probe – show which program GitHub is executing
+      - name: Probe current shell
+        shell: pwsh
+        run: |
+          Write-Host "GitHub picked: $($PSVersionTable.PSEdition)  (if this prints Core or Desktop, you are in PowerShell)"
+          Write-Host "Bash in PATH? $(where.exe bash 2>$null)"
 
       # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
