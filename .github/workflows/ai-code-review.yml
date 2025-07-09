@@ -68,34 +68,31 @@ jobs:
           # ----- build the prompt -------------------------------------------------
           $prompt = @'
           You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests,
-          performance issues, and accessibility concerns. Respond in GitHub‑flavored
+          performance issues, and accessibility concerns. Respond in GitHub-flavored
           Markdown bullets.
           '@
 
-          $diffText = @'
+          $diffText = @"
           ${{ steps.diff.outputs.DIFF }}
-          '@
+          "@
 
           $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
 
           # ----- create JSON payload with jq --------------------------------------
           $payload = & jq -n --arg m "gemma:2b" --arg p $fullPrompt `
-                        '{model:$m, prompt:$p}'
+            '{model:$m, prompt:$p}'
 
           # ----- call Ollama locally ---------------------------------------------
-           $response = & curl -s http://localhost:11434/api/generate `
-              -H "Content-Type: application/json" `
-              -d $payload
+          $response = & curl -s http://localhost:11434/api/generate `
+            -H "Content-Type: application/json" `
+            -d $payload
 
-            $reviewText = $response | ForEach-Object {
-              try {
-                ($_ | ConvertFrom-Json).response
-              } catch {
-                ""
-              }
-            } | Where-Object { $_ -ne $null } | Out-String
+          $reviewText = $response | ForEach-Object {
+            try { ( $_ | ConvertFrom-Json ).response } catch { "" }
+          } | Where-Object { $_ } | Out-String
 
-            $reviewText = $reviewText -replace "`r", ""
+          $reviewText = $reviewText -replace "`r", ""
+
           # ----- expose for next step --------------------------------------------
           @"
           REVIEW<<EOF
