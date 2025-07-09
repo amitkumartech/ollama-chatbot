@@ -36,6 +36,18 @@ jobs:
           "DIFF<<EOF"            | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
           Get-Content pr.diff    | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
           "EOF"                  | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+      #test jq version
+      - name: Confirm jq availability
+        shell: pwsh
+        run: |
+          Write-Host "Checking jq version..."
+          try {
+            $jqVersion = jq --version
+            Write-Host "✅ jq found: $jqVersion"
+          } catch {
+            Write-Host "❌ jq not found or not in PATH"
+            exit 1
+          }
 
       # 3. Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
