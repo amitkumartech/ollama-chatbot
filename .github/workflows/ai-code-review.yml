@@ -108,16 +108,22 @@ jobs:
           EOF
           "@ | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      # 4. Post comment via GitHub REST API (no gh CLI) ------------------------
+      # 4. Post comment via GitHub REST API ------------------------------------
       - name: Post review comment
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built-in token is fine
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $ErrorActionPreference = "Stop"
 
-          # Encode the review for JSON
-          body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
-          curl -s -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            -d "{\"body\": $body}"
+          # Build JSON payload for the GitHub API
+          $bodyJson = @{
+            body = "${{ steps.review.outputs.REVIEW }}"
+          } | ConvertTo-Json -Compress
+
+          # Post the comment
+          curl -s -X POST `
+            -H "Authorization: Bearer $env:GH_TOKEN" `
+            -H "Accept: application/vnd.github+json" `
+            -d $bodyJson `
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
