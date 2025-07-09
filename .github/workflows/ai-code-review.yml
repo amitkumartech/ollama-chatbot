@@ -10,58 +10,58 @@ jobs:
     runs-on: self-hosted
     defaults:
       run:
-        shell: pwsh   # applies to every run: in this job
+        shell: bash # applies to every run: in this job
     steps:
-    # 1️⃣ Checkout code -------------------------------------------------------
-    - name: Checkout
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout code -------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # 2️⃣ Generate the PR diff -----------------------------------------------
-    - name: Produce diff
-      id: diff
-      run: |
-        # Base branch ref (e.g. 'main' or 'master')
-        BASE_REF=${{ github.base_ref }}
-        git fetch origin "$BASE_REF"
-        # We only diff .ts/.html/.scss for brevity; adjust as needed
-        git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
-        # Save diff to output for later steps
-        echo "DIFF<<EOF" >> "$GITHUB_OUTPUT"
-        cat pr.diff >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+      # 2️⃣ Generate the PR diff -----------------------------------------------
+      - name: Produce diff
+        id: diff
+        run: |
+          # Base branch ref (e.g. 'main' or 'master')
+          BASE_REF=${{ github.base_ref }}
+          git fetch origin "$BASE_REF"
+          # We only diff .ts/.html/.scss for brevity; adjust as needed
+          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
+          # Save diff to output for later steps
+          echo "DIFF<<EOF" >> "$GITHUB_OUTPUT"
+          cat pr.diff >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-    # 3️⃣ Ask Ollama for a code review ---------------------------------------
-    - name: Query local LLM via Ollama
-      id: review
-      run: |
-        prompt=$(cat <<'PROMPT' 
-        You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub‑flavored Markdown bullets. 
-        PROMPT
-        )
-        # Combine system prompt + diff
-        payload=$(jq -n --arg m "codellama:7b" \
-                         --arg p "$prompt\n\n----- DIFF START -----\n${{ steps.diff.outputs.DIFF }}\n----- DIFF END -----" \
-                         '{model:$m, prompt:$p}')
-        # Call local Ollama
-        response=$(curl -s http://localhost:11434/api/generate \
-                     -H "Content-Type: application/json" \
-                     -d "$payload")
-        # Extract the generated text (streaming API returns JSON lines)
-        review_text=$(echo "$response" | jq -r '.[].response' | tr -d '\r')
-        # Expose for next step
-        echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$review_text" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+      # 3️⃣ Ask Ollama for a code review ---------------------------------------
+      - name: Query local LLM via Ollama
+        id: review
+        run: |
+          prompt=$(cat <<'PROMPT' 
+          You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub‑flavored Markdown bullets. 
+          PROMPT
+          )
+          # Combine system prompt + diff
+          payload=$(jq -n --arg m "codellama:7b" \
+                           --arg p "$prompt\n\n----- DIFF START -----\n${{ steps.diff.outputs.DIFF }}\n----- DIFF END -----" \
+                           '{model:$m, prompt:$p}')
+          # Call local Ollama
+          response=$(curl -s http://localhost:11434/api/generate \
+                       -H "Content-Type: application/json" \
+                       -d "$payload")
+          # Extract the generated text (streaming API returns JSON lines)
+          review_text=$(echo "$response" | jq -r '.[].response' | tr -d '\r')
+          # Expose for next step
+          echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$review_text" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-    # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
-    - name: Post review comment
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # built‑in token is fine
-      run: |
-        # Encode the review for JSON
-        body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
-        curl -s -X POST \
-          -H "Authorization: Bearer $GH_TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-          -d "{\"body\": $body}"
+      # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built‑in token is fine
+        run: |
+          # Encode the review for JSON
+          body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
+          curl -s -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -d "{\"body\": $body}"
