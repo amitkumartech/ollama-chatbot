@@ -31,7 +31,11 @@ jobs:
           git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
           # Save diff to output for later steps
 
-          echo "DIFF=$(cat pr.diff | python -c 'import sys, urllib.parse as ul; print(ul.quote(sys.stdin.read()))')" >> "$GITHUB_OUTPUT"
+          {
+          echo "DIFF<<EOF"
+          cat pr.diff
+          echo "EOF"
+           } >> $GITHUB_OUTPUT
 
       # 3️⃣ Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
