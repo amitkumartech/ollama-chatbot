@@ -60,12 +60,11 @@ jobs:
           $prompt = @'
           You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests,
           performance issues, and accessibility concerns. Respond in GitHub‑flavored
-          Markdown bullets.
-          '@
+          Markdown bullets.'@
 
           $diffText = @'
            ${{ steps.diff.outputs.DIFF }}
-           '@
+          '@
 
           $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
 
