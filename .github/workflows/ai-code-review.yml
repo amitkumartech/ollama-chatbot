@@ -65,35 +65,35 @@ jobs:
 
           $ErrorActionPreference = "Stop"
 
-          # ----- build the prompt -------------------------------------------------
+          # ---- build prompt -------------------------------------------------
           $prompt = @'
           You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests,
           performance issues, and accessibility concerns. Respond in GitHub-flavored
           Markdown bullets.
           '@
-          Write-Host "✅ query prepared"
+
           $diffText = @"
           ${{ steps.diff.outputs.DIFF }}
           "@
 
           $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
-          Write-Host "✅ full prompt prepared"
-          # ----- create JSON payload with jq --------------------------------------
-          $payload = & jq -n --arg m "gemma:2b" --arg p $fullPrompt `
-            '{model:$m, prompt:$p}'
-            Write-Host "✅ payload prepared ($payload)"
-            Write-Host "✅ fullPrompt: ($fullPrompt)"
-            
-            $payload = $payloadObj | ConvertTo-Json
-            Write-Host "✅ payload prepared ($payload)"
-            Write-Host "✅ fullPrompt: ($fullPrompt)"
 
-            
-          # ----- call Ollama locally ---------------------------------------------
+          # ---- build payload object safely ---------------------------------
+          $payloadObj = @{
+            model  = 'gemma:2b'
+            prompt = $fullPrompt
+            stream = $false            # or $true for token streaming
+          }
 
-          $response = & curl -s http://localhost:11434/api/generate `
+          $payload = $payloadObj | ConvertTo-Json -Depth 4 -Compress
+
+          Write-Host "DEBUG Payload JSON => $payload"   # should show non‑null string
+
+          # ---- call Ollama --------------------------------------------------
+          $response = curl -s http://localhost:11434/api/generate `
             -H "Content-Type: application/json" `
             -d $payload
+          Write-Host "DEBUG Response JSON => $response" # should show non‑null string
           Write-Host "✅ response prepared  ($response)"
           $reviewText = $response | ForEach-Object {
             try { ( $_ | ConvertFrom-Json ).response } catch { "" }
