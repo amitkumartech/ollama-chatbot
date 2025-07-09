@@ -7,7 +7,10 @@ on:
 jobs:
   review:
     # Runner must have Ollama + jq installed and be labelled "self-hosted"
-    runs-on: self-hosted
+    runs-on: [self-hosted, windows] # <‑‑ add the OS label
+    defaults:
+      run:
+        shell: bash
     steps:
       # 1️⃣ Checkout code -------------------------------------------------------
       - name: Checkout
