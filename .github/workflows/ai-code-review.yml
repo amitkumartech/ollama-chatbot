@@ -46,7 +46,7 @@ jobs:
           PROMPT
           )
           # Combine system prompt + diff
-          payload=$(jq -n --arg m "codellama:7b" \
+          payload=$(jq -n --arg m "gemma:2b" \
                            --arg p "$prompt\n\n----- DIFF START -----\n${{ steps.diff.outputs.DIFF }}\n----- DIFF END -----" \
                            '{model:$m, prompt:$p}')
           # Call local Ollama
