@@ -26,20 +26,21 @@ jobs:
       # 2. Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
-        shell: bash
+        shell: pwsh
         run: |
-          BASE_REF=${{ github.base_ref }}
-          git fetch origin "$BASE_REF"
-          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
-          {
-            echo "DIFF<<EOF"
-            cat pr.diff
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          $BASE_REF = "${{ github.base_ref }}"
+          git fetch --depth 1 origin $BASE_REF
+          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' |
+            Out-File -Encoding utf8 pr.diff
+
+          "DIFF<<EOF"            | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          Get-Content pr.diff    | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          "EOF"                  | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
 
       # 3. Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
         id: review
+        shell: bash
         run: |
           prompt=$(cat <<'PROMPT' 
           You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. 
