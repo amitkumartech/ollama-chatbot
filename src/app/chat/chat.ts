@@ -5,50 +5,26 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { marked } from 'marked';
 
-// chat.component.ts
+// Define the structure of a message in the chat
+// This interface is used to type the messages array in the ChatComponent
 interface Message {
   from: 'user' | 'bot';
-  text?: string;      // present on normal messages
-  loading?: boolean;  // true only on the placeholder bubble
+  text?: string; // present on normal messages
+  loading?: boolean; // true only on the placeholder bubble
 }
 
 @Component({
   standalone: true,
   selector: 'app-chat',
   templateUrl: './chat.html',
-  styleUrl: './chat.scss',   // keep empty or omit if you like
-  imports: [CommonModule, FormsModule]
+  styleUrl: './chat.scss', // keep empty or omit if you like
+  imports: [CommonModule, FormsModule],
 })
 export class ChatComponent {
   messages: Message[] = [];
   isLoading = false;
-  constructor(private http: HttpClient) { }
 
-  // sendMessage(prompt: string): void {
-  //   const text = prompt.trim();
-  //   if (!text) return;
-
-  //   this.messages.push({ from: 'user', text });
-  //   this.isLoading = true;
-  //   const loaderIndex = this.messages.push({ from: 'bot', loading: true }) - 1;
-
-  //   this.http.post<{ response: string }>(
-  //     'http://localhost:11434/api/generate',
-  //     { model: 'llama3', prompt: text, stream: false }
-  //   ).subscribe({
-  //     next: res => this.messages[loaderIndex] = { from: 'bot', text: res.response },
-  //     error: err => this.messages.push({ from: 'bot', text: '⚠️ ' + err.message }),
-  //     complete: () => this.isLoading = false,
-  //   });
-  // }
-
-  // ollama-api.service.ts  (add this beside the existing generate() method)
-
-
-
-  // ollama-api.service.ts  (add this beside the existing generate() method)
-
-
+  constructor(private http: HttpClient) {}
 
   streamGenerate(prompt: string, model = 'gemma:2b'): Observable<string> {
     // Returns an Observable that pushes **each token / chunk** as it arrives.
@@ -76,8 +52,8 @@ export class ChatComponent {
               buffer = buffer.slice(idx + 1);
               if (!line) continue;
 
-              const chunk = JSON.parse(line);        // { response: "...", done: false/true }
-              observer.next(chunk.response);         // emit the new fragment
+              const chunk = JSON.parse(line); // { response: "...", done: false/true }
+              observer.next(chunk.response); // emit the new fragment
               if (chunk.done) {
                 observer.complete();
                 return;
@@ -103,8 +79,7 @@ export class ChatComponent {
     const botIndex = this.messages.push({ from: 'bot', text: '' }) - 1;
 
     // 3. subscribe to the stream
-    this
-      .streamGenerate(text)                 // <—— new call
+    this.streamGenerate(text) // <—— new call
       .subscribe({
         next: (chunk) => {
           // append incoming tokens
@@ -119,20 +94,12 @@ export class ChatComponent {
   getItFormatted(llmResponse: any) {
     const html = marked(llmResponse);
     return html;
-
   }
 
   getItFormattedCheck(llmResponse: any) {
     const html = marked(llmResponse);
-    console.log("temp log added");
+    console.log('temp log added');
 
     return html.toString();
-
   }
-
-
-
-
-
 }
-
