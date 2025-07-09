@@ -1,4 +1,4 @@
-name: Ollama AI PR Review (Bot‑Only)
+name: Ollama AI PR Review (Bot-Only)
 
 on:
   pull_request:
@@ -7,23 +7,23 @@ on:
 jobs:
   review:
     # Runner must have Ollama + jq installed and be labelled "self-hosted"
-    runs-on: [self-hosted, windows, ollama] # <‑‑ add the OS label
+    runs-on: [self-hosted, windows, ollama] # <-- add the OS label
 
     steps:
-      # 1️⃣ Checkout code -------------------------------------------------------
+      # 1. Checkout code -------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # ← full history; merge base always available
+          fetch-depth: 0 # full history; merge base always available
 
-      # Quick probe – show which program GitHub is executing
+      # Quick probe - show which program GitHub is executing
       - name: Probe current shell
         shell: pwsh
         run: |
           Write-Host "GitHub picked: $($PSVersionTable.PSEdition)  (if this prints Core or Desktop, you are in PowerShell)"
           Write-Host "Bash in PATH? $(where.exe bash 2>$null)"
 
-      # 2️⃣ Generate the PR diff -----------------------------------------------
+      # 2. Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
         shell: bash
@@ -37,12 +37,12 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # 3️⃣ Ask Ollama for a code review ---------------------------------------
+      # 3. Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
         id: review
         run: |
           prompt=$(cat <<'PROMPT' 
-          You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub‑flavored Markdown bullets. 
+          You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. 
           PROMPT
           )
           # Combine system prompt + diff
@@ -60,10 +60,10 @@ jobs:
           echo "$review_text" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
+      # 4. Post comment via GitHub REST API (no gh CLI) ------------------------
       - name: Post review comment
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built‑in token is fine
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built-in token is fine
         run: |
           # Encode the review for JSON
           body=$(jq -Rs <<< "${{ steps.review.outputs.REVIEW }}")
