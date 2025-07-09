@@ -74,13 +74,19 @@ jobs:
                         '{model:$m, prompt:$p}'
 
           # ----- call Ollama locally ---------------------------------------------
-          $response = & curl -s http://localhost:11434/api/generate `
-                         -H "Content-Type: application/json" `
-                         -d $payload
+           $response = & curl -s http://localhost:11434/api/generate `
+              -H "Content-Type: application/json" `
+              -d $payload
 
-          # Extract streamed responses and trim CR/LF
-          $reviewText = ($response | jq -r '.[].response') -replace "`r", ""
+            $reviewText = $response | ForEach-Object {
+              try {
+                ($_ | ConvertFrom-Json).response
+              } catch {
+                ""
+              }
+            } | Where-Object { $_ -ne $null } | Out-String
 
+            $reviewText = $reviewText -replace "`r", ""
           # ----- expose for next step --------------------------------------------
           @"
           REVIEW<<EOF
