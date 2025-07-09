@@ -40,26 +40,41 @@ jobs:
       # 3. Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
         id: review
-        shell: bash
+        shell: pwsh
         run: |
-          prompt=$(cat <<'PROMPT' 
-          You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. 
-          PROMPT
-          )
-          # Combine system prompt + diff
-          payload=$(jq -n --arg m "gemma:2b" \
-                           --arg p "$prompt\n\n----- DIFF START -----\n${{ steps.diff.outputs.DIFF }}\n----- DIFF END -----" \
-                           '{model:$m, prompt:$p}')
-          # Call local Ollama
-          response=$(curl -s http://localhost:11434/api/generate \
-                       -H "Content-Type: application/json" \
-                       -d "$payload")
-          # Extract the generated text (streaming API returns JSON lines)
-          review_text=$(echo "$response" | jq -r '.[].response' | tr -d '\r')
-          # Expose for next step
-          echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$review_text" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          $ErrorActionPreference = "Stop"
+
+          # ----- build the prompt -------------------------------------------------
+          $prompt = @'
+          You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests,
+          performance issues, and accessibility concerns. Respond in GitHub‑flavored
+          Markdown bullets.
+          '@
+
+          $diffText = @'
+           ${{ steps.diff.outputs.DIFF }}
+           '@
+
+          $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
+
+          # ----- create JSON payload with jq --------------------------------------
+          $payload = & jq -n --arg m "gemma:2b" --arg p $fullPrompt `
+                        '{model:$m, prompt:$p}'
+
+          # ----- call Ollama locally ---------------------------------------------
+          $response = & curl -s http://localhost:11434/api/generate `
+                         -H "Content-Type: application/json" `
+                         -d $payload
+
+          # Extract streamed responses and trim CR/LF
+          $reviewText = ($response | jq -r '.[].response') -replace "`r", ""
+
+          # ----- expose for next step --------------------------------------------
+          @"
+          REVIEW<<EOF
+          $reviewText
+          EOF
+          "@ | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       # 4. Post comment via GitHub REST API (no gh CLI) ------------------------
       - name: Post review comment
