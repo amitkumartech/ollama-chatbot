@@ -63,8 +63,7 @@ jobs:
           Markdown bullets.'@
 
           $diffText = @'
-           ${{ steps.diff.outputs.DIFF }}
-          '@
+           ${{ steps.diff.outputs.DIFF }}'@
 
           $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
 
