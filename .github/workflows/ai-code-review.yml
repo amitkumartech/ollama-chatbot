@@ -13,10 +13,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 🔍 Quick debug – which shell is GitHub about to use?
+      - name: Show active shell
+        shell: pwsh # keep this one in PowerShell
+        run: echo "Shell chosen by runner = $SHELL"
+
       # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -eo pipefail -c "{0}"'
+        shell: 'C:\Progra~1\Git\bin\bash.exe --noprofile --norc -eo pipefail -c "{0}"'
         run: |
           # Base branch ref (e.g. 'main' or 'master')
           BASE_REF=${{ github.base_ref }}
