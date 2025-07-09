@@ -81,6 +81,7 @@ jobs:
           # ----- create JSON payload with jq --------------------------------------
           $payload = & jq -n --arg m "gemma:2b" --arg p $fullPrompt `
             '{model:$m, prompt:$p}'
+          $payload = $payloadObj | ConvertTo-Json -Depth 4 -Compress
           Write-Host "✅ payload prepared ($payload)"
           # ----- call Ollama locally ---------------------------------------------
 
