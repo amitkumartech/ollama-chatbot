@@ -17,18 +17,24 @@ jobs:
       # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
+        shell: pwsh
         run: |
-          # Base branch ref (e.g. 'main' or 'master')
-          BASE_REF=${{ github.base_ref }}
-          git fetch origin "$BASE_REF"
-          # We only diff .ts/.html/.scss for brevity; adjust as needed
-          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
-          # Base64-encode the diff for safe transport
-          encoded_diff=$(base64 -w 0 pr.diff)
-          # Save diff to output for later steps
-          echo "DIFF<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$encoded_diff" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          $BASE_REF = "${{ github.base_ref }}"
+
+          # Check if the base branch exists on remote
+          $branchExists = git ls-remote --heads origin $BASE_REF
+
+          if (-not $branchExists) {
+            Write-Host "⚠️ Base branch '$BASE_REF' not found on remote. Exiting."
+            exit 0  # or use `exit 78` to mark the job as skipped
+          }
+
+          git fetch origin $BASE_REF
+          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' | Out-File -Encoding utf8 pr.diff
+
+          "DIFF<<EOF" | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          Get-Content pr.diff | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          "EOF" | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
 
       # 3️⃣ Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
