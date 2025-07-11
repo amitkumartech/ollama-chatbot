@@ -4,21 +4,15 @@ on:
   pull_request:
     types: [opened, synchronize]
 
-permissions:
-  contents: read
-  pull-requests: write
-
 jobs:
   review:
     # Runner must have Ollama + jq installed and be labelled "self-hosted"
-    runs-on: [self-hosted, windows, ollama] # <-- add the OS label
+    runs-on: self-hosted
 
     steps:
-      # 1. Checkout code -------------------------------------------------------
+      # 1️⃣ Checkout code -------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # full history; merge base always available
 
       # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
@@ -45,13 +39,13 @@ jobs:
           prompt_template=$(cat <<'PROMPT' You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. PROMPT)
           # Combine system prompt + diff in a safe way for jq
           payload=$(jq -n --arg m "codellama:7b" 
-                          --arg p "$prompt_template" 
-                          --arg d "$decoded_diff" 
-                          '{model:$m, prompt:($p + "\n\n----- DIFF START -----\n" + $d + "\n----- DIFF END -----")}')
+                           --arg p "$prompt_template" 
+                           --arg d "$decoded_diff" 
+                           '{model:$m, prompt:($p + "\n\n----- DIFF START -----\n" + $d + "\n----- DIFF END -----")}')
           # Call local Ollama
           response=$(curl -s http://localhost:11434/api/generate 
-                      -H "Content-Type: application/json" 
-                      -d "$payload")
+                       -H "Content-Type: application/json" 
+                       -d "$payload")
           # Extract the generated text (streaming API returns JSON lines)
           review_text=$(echo "$response" | jq -r '.[].response' | tr -d '')
           # Base64-encode the review for safe transport
