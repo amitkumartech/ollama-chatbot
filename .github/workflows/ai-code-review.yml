@@ -20,114 +20,58 @@ jobs:
         with:
           fetch-depth: 0 # full history; merge base always available
 
-      # Quick probe - show which program GitHub is executing
-      - name: Probe current shell
-        shell: pwsh
-        run: |
-          Write-Host "GitHub picked: $($PSVersionTable.PSEdition)  (if this prints Core or Desktop, you are in PowerShell)"
-          Write-Host "Bash in PATH? $(where.exe bash 2>$null)"
-
-      # 2. Generate the PR diff -----------------------------------------------
+      # 2️⃣ Generate the PR diff -----------------------------------------------
       - name: Produce diff
         id: diff
-        shell: pwsh
         run: |
-          $BASE_REF = "${{ github.base_ref }}"
-          git fetch --depth 1 origin $BASE_REF
-          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' |
-            Out-File -Encoding utf8 pr.diff
+          # Base branch ref (e.g. 'main' or 'master')
+          BASE_REF=${{ github.base_ref }}
+          git fetch origin "$BASE_REF"
+          # We only diff .ts/.html/.scss for brevity; adjust as needed
+          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
+          # Base64-encode the diff for safe transport
+          encoded_diff=$(base64 -w 0 pr.diff)
+          # Save diff to output for later steps
+          echo "DIFF<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$encoded_diff" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-          "DIFF<<EOF"            | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
-          Get-Content pr.diff    | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
-          "EOF"                  | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
-      #test jq version
-      - name: Confirm jq availability
-        shell: pwsh
-        run: |
-          Write-Host "Checking jq version..."
-          try {
-            $jqVersion = jq --version
-            Write-Host "✅ jq found: $jqVersion"
-          } catch {
-            Write-Host "❌ jq not found or not in PATH"
-            exit 1
-          }
-
-      # 3. Ask Ollama for a code review ---------------------------------------
+      # 3️⃣ Ask Ollama for a code review ---------------------------------------
       - name: Query local LLM via Ollama
         id: review
-        shell: pwsh
         run: |
-          Write-Host "Checking jq version..."
-          try {
-            $jqVersion = jq --version
-            Write-Host "✅ jq found: $jqVersion"
-          } catch {
-            Write-Host "❌ jq not found or not in PATH"
-            exit 1
-          }
+          # Decode the diff
+          decoded_diff=$(echo "${{ steps.diff.outputs.DIFF }}" | base64 -d)
+          prompt_template=$(cat <<'PROMPT' You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. PROMPT)
+          # Combine system prompt + diff in a safe way for jq
+          payload=$(jq -n --arg m "codellama:7b" 
+                          --arg p "$prompt_template" 
+                          --arg d "$decoded_diff" 
+                          '{model:$m, prompt:($p + "\n\n----- DIFF START -----\n" + $d + "\n----- DIFF END -----")}')
+          # Call local Ollama
+          response=$(curl -s http://localhost:11434/api/generate 
+                      -H "Content-Type: application/json" 
+                      -d "$payload")
+          # Extract the generated text (streaming API returns JSON lines)
+          review_text=$(echo "$response" | jq -r '.[].response' | tr -d '')
+          # Base64-encode the review for safe transport
+          encoded_review=$(echo "$review_text" | base64 -w 0)
+          # Expose for next step
+          echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$encoded_review" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-          $ErrorActionPreference = "Stop"
-
-          # ---- build prompt -------------------------------------------------
-          $prompt = @'
-          You are a senior Angular/TypeScript reviewer. Identify bugs, missing unit tests,
-          performance issues, and accessibility concerns. Respond in GitHub-flavored
-          Markdown bullets.
-          '@
-
-          $diffText = @"
-          ${{ steps.diff.outputs.DIFF }}
-          "@
-
-          $fullPrompt = "$prompt`n`n----- DIFF START -----`n$diffText`n----- DIFF END -----"
-
-          # ---- build payload object safely ---------------------------------
-          $payloadObj = @{
-            model  = 'gemma:2b'
-            prompt = $fullPrompt
-            stream = $false            # or $true for token streaming
-          }
-
-          $payload = $payloadObj | ConvertTo-Json -Depth 4 -Compress
-
-          Write-Host "DEBUG Payload JSON => $payload"   # should show non‑null string
-
-          # ---- call Ollama --------------------------------------------------
-          $response = curl -s http://localhost:11434/api/generate `
-            -H "Content-Type: application/json" `
-            -d $payload
-          Write-Host "DEBUG Response JSON => $response" # should show non‑null string
-          Write-Host "✅ response prepared  ($response)"
-          $reviewText = $response | ForEach-Object {
-            try { ( $_ | ConvertFrom-Json ).response } catch { "" }
-          } | Where-Object { $_ } | Out-String
-          Write-Host "✅ reviewText prepared ($reviewText)"
-          $reviewText = $reviewText -replace "`r", ""
-
-          # ----- expose for next step --------------------------------------------
-          @"
-          REVIEW<<EOF
-          $reviewText
-          EOF
-          "@ | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      # 4. Post comment via GitHub REST API ------------------------------------
+      # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
       - name: Post review comment
-        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built-in token is fine
         run: |
-          $ErrorActionPreference = "Stop"
-
-          # Build JSON payload for the GitHub API
-          $bodyJson = @{
-            body = "${{ steps.review.outputs.REVIEW }}"
-          } | ConvertTo-Json -Compress
-
-          # Post the comment
-          curl -s -X POST `
-            -H "Authorization: Bearer $env:GH_TOKEN" `
-            -H "Accept: application/vnd.github+json" `
-            -d $bodyJson `
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+          # Decode the review
+          decoded_review=$(echo "${{ steps.review.outputs.REVIEW }}" | base64 -d)
+          # Encode the review for JSON
+          body=$(jq -Rs <<< "$decoded_review")
+          curl -s -X POST 
+            -H "Authorization: Bearer $GH_TOKEN" 
+            -H "Accept: application/vnd.github+json" 
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments 
+            -d "{\"body\": $body}"
