@@ -10,62 +10,68 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    # 1️⃣ Checkout code -------------------------------------------------------
-    - name: Checkout
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout code -------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # 2️⃣ Generate the PR diff -----------------------------------------------
-    - name: Produce diff
-      id: diff
-      run: |
-        # Base branch ref (e.g. 'main' or 'master')
-        BASE_REF=${{ github.base_ref }}
-        git fetch origin "$BASE_REF"
-        # We only diff .ts/.html/.scss for brevity; adjust as needed
-        git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' > pr.diff
-        # Base64-encode the diff for safe transport
-        encoded_diff=$(base64 -w 0 pr.diff)
-        # Save diff to output for later steps
-        echo "DIFF<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$encoded_diff" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+      # 2️⃣ Generate the PR diff -----------------------------------------------
+      - name: Produce diff
+        id: diff
+        shell: pwsh
+        run: |
+          $BASE_REF = "${{ github.base_ref }}"
 
-    # 3️⃣ Ask Ollama for a code review ---------------------------------------
-    - name: Query local LLM via Ollama
-      id: review
-      run: |
-        # Decode the diff
-        decoded_diff=$(echo "${{ steps.diff.outputs.DIFF }}" | base64 -d)
-        prompt_template=$(cat <<'PROMPT' You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. PROMPT)
-        # Combine system prompt + diff in a safe way for jq
-        payload=$(jq -n --arg m "codellama:7b" 
-                         --arg p "$prompt_template" 
-                         --arg d "$decoded_diff" 
-                         '{model:$m, prompt:($p + "\n\n----- DIFF START -----\n" + $d + "\n----- DIFF END -----")}')
-        # Call local Ollama
-        response=$(curl -s http://localhost:11434/api/generate 
-                     -H "Content-Type: application/json" 
-                     -d "$payload")
-        # Extract the generated text (streaming API returns JSON lines)
-        review_text=$(echo "$response" | jq -r '.[].response' | tr -d '')
-        # Base64-encode the review for safe transport
-        encoded_review=$(echo "$review_text" | base64 -w 0)
-        # Expose for next step
-        echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
-        echo "$encoded_review" >> "$GITHUB_OUTPUT"
-        echo "EOF" >> "$GITHUB_OUTPUT"
+          # Check if the base branch exists on remote
+          $branchExists = git ls-remote --heads origin $BASE_REF
 
-    # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
-    - name: Post review comment
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # built-in token is fine
-      run: |
-        # Decode the review
-        decoded_review=$(echo "${{ steps.review.outputs.REVIEW }}" | base64 -d)
-        # Encode the review for JSON
-        body=$(jq -Rs <<< "$decoded_review")
-        curl -s -X POST 
-          -H "Authorization: Bearer $GH_TOKEN" 
-          -H "Accept: application/vnd.github+json" 
-          https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments 
-          -d "{\"body\": $body}"
+          if (-not $branchExists) {
+            Write-Host "⚠️ Base branch '$BASE_REF' not found on remote. Exiting."
+            exit 0  # or use `exit 78` to mark the job as skipped
+          }
+
+          git fetch origin $BASE_REF
+          git diff origin/$BASE_REF...HEAD -- '*.ts' '*.html' '*.scss' | Out-File -Encoding utf8 pr.diff
+
+          "DIFF<<EOF" | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          Get-Content pr.diff | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+          "EOF" | Out-File -Encoding utf8 -Append $env:GITHUB_OUTPUT
+
+      # 3️⃣ Ask Ollama for a code review ---------------------------------------
+      - name: Query local LLM via Ollama
+        id: review
+        run: |
+          # Decode the diff
+          decoded_diff=$(echo "${{ steps.diff.outputs.DIFF }}" | base64 -d)
+          prompt_template=$(cat <<'PROMPT' You are a senior Angular/TypeScript reviewer.  Identify bugs, missing unit tests, performance issues, and accessibility concerns. Respond in GitHub-flavored Markdown bullets. PROMPT)
+          # Combine system prompt + diff in a safe way for jq
+          payload=$(jq -n --arg m "codellama:7b" 
+                           --arg p "$prompt_template" 
+                           --arg d "$decoded_diff" 
+                           '{model:$m, prompt:($p + "\n\n----- DIFF START -----\n" + $d + "\n----- DIFF END -----")}')
+          # Call local Ollama
+          response=$(curl -s http://localhost:11434/api/generate 
+                       -H "Content-Type: application/json" 
+                       -d "$payload")
+          # Extract the generated text (streaming API returns JSON lines)
+          review_text=$(echo "$response" | jq -r '.[].response' | tr -d '')
+          # Base64-encode the review for safe transport
+          encoded_review=$(echo "$review_text" | base64 -w 0)
+          # Expose for next step
+          echo "REVIEW<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$encoded_review" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      # 4️⃣ Post comment via GitHub REST API (no gh CLI) ------------------------
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # built-in token is fine
+        run: |
+          # Decode the review
+          decoded_review=$(echo "${{ steps.review.outputs.REVIEW }}" | base64 -d)
+          # Encode the review for JSON
+          body=$(jq -Rs <<< "$decoded_review")
+          curl -s -X POST 
+            -H "Authorization: Bearer $GH_TOKEN" 
+            -H "Accept: application/vnd.github+json" 
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments 
+            -d "{\"body\": $body}"
